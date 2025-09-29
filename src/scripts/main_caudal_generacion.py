@@ -150,7 +150,7 @@ delta_z = 0.1           # m
 n_elementos = int(altura_total / delta_z)
 
 # Parámetros temporales
-dt = 1.0  # horas
+dt = 0.5  # horas
 dias_simulacion = 60
 tiempo_total = 24 * dias_simulacion
 n_pasos = int(tiempo_total / dt)
@@ -168,7 +168,7 @@ duracion_riego = 15.0
 duracion_reposo = 5.0
 riego_continuo = False
 
-#%%
+
 # =============================================================================
 # SIMULACIÓN OPTIMIZADA CON SISTEMA VERDADERAMENTE ACOPLADO
 # =============================================================================
@@ -248,7 +248,20 @@ print("Simulación con sistema acoplado completada!")
 # =============================================================================
 # VISUALIZACIÓN DE RESULTADOS
 # =============================================================================
+type(cobre_recuperado_vector)
 
+for i in range(len(cobre_recuperado_vector)):
+    if cobre_recuperado_vector[i+1] > cobre_recuperado_vector[i]:
+        print(i , cobre_recuperado_vector[i])
+    
+#%%
+plt.plot(np.array(cobre_recuperado_vector), marker='o', markersize=1, linestyle='--')
+plt.grid(True, alpha=0.3)
+plt.xlabel('Tiempo (días)')
+plt.ylabel('Cobre Recuperado (%)')
+plt.show()
+
+#%%
 # Gráfico principal de evolución temporal
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
 
@@ -273,44 +286,44 @@ ax2.legend()
 plt.tight_layout()
 plt.show()
 
-# Gráfico de perfiles finales
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+# # Gráfico de perfiles finales
+# fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
 
-# Perfil de humedad
-ax1.plot(theta_columna, profundidades, 'b-', linewidth=2)
-ax1.set_xlabel('Contenido de Humedad θ')
-ax1.set_ylabel('Profundidad (m)')
-ax1.set_title('Perfil Final de Humedad')
-ax1.invert_yaxis()
-ax1.grid(True, alpha=0.3)
+# # Perfil de humedad
+# ax1.plot(theta_columna, profundidades, 'b-', linewidth=2)
+# ax1.set_xlabel('Contenido de Humedad θ')
+# ax1.set_ylabel('Profundidad (m)')
+# ax1.set_title('Perfil Final de Humedad')
+# ax1.invert_yaxis()
+# ax1.grid(True, alpha=0.3)
 
-# Perfil de concentración
-ax2.plot(concentracion_columna, profundidades, 'g-', linewidth=2)
-ax2.set_xlabel('Concentración (kg/m³)')
-ax2.set_ylabel('Profundidad (m)')
-ax2.set_title('Perfil Final de Concentración')
-ax2.invert_yaxis()
-ax2.grid(True, alpha=0.3)
+# # Perfil de concentración
+# ax2.plot(concentracion_columna, profundidades, 'g-', linewidth=2)
+# ax2.set_xlabel('Concentración (kg/m³)')
+# ax2.set_ylabel('Profundidad (m)')
+# ax2.set_title('Perfil Final de Concentración')
+# ax2.invert_yaxis()
+# ax2.grid(True, alpha=0.3)
 
-# Perfil de ley de cobre
-ax3.plot(ley_columna, profundidades, 'r-', linewidth=2)
-ax3.set_xlabel('Ley de Cobre (kg/kg)')
-ax3.set_ylabel('Profundidad (m)')
-ax3.set_title('Perfil Final de Ley de Cobre')
-ax3.invert_yaxis()
-ax3.grid(True, alpha=0.3)
+# # Perfil de ley de cobre
+# ax3.plot(ley_columna, profundidades, 'r-', linewidth=2)
+# ax3.set_xlabel('Ley de Cobre (kg/kg)')
+# ax3.set_ylabel('Profundidad (m)')
+# ax3.set_title('Perfil Final de Ley de Cobre')
+# ax3.invert_yaxis()
+# ax3.grid(True, alpha=0.3)
 
-# Perfil de conductividad hidráulica
-K_perfil = [conductividad_hidraulica(theta, theta_r, theta_s, n, K_s) for theta in theta_columna]
-ax4.plot(K_perfil, profundidades, 'm-', linewidth=2)
-ax4.set_xlabel('Conductividad Hidráulica (m/h)')
-ax4.set_ylabel('Profundidad (m)')
-ax4.set_title('Perfil Final de Conductividad Hidráulica')
-ax4.invert_yaxis()
-ax4.grid(True, alpha=0.3)
+# # Perfil de conductividad hidráulica
+# K_perfil = [conductividad_hidraulica(theta, theta_r, theta_s, n, K_s) for theta in theta_columna]
+# ax4.plot(K_perfil, profundidades, 'm-', linewidth=2)
+# ax4.set_xlabel('Conductividad Hidráulica (m/h)')
+# ax4.set_ylabel('Profundidad (m)')
+# ax4.set_title('Perfil Final de Conductividad Hidráulica')
+# ax4.invert_yaxis()
+# ax4.grid(True, alpha=0.3)
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()
 
 # Resumen de resultados
 print("\n" + "="*60)
@@ -328,3 +341,4 @@ print(f"Humedad promedio final: {np.mean(theta_columna):.4f}")
 print(f"Concentración promedio final: {np.mean(concentracion_columna):.4f} kg/m³")
 print(f"Ley promedio final: {np.mean(ley_columna):.6f} kg/kg")
 print("="*60)
+# %%
