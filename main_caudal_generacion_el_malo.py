@@ -20,24 +20,25 @@ def conductividad_hidraulica(theta, theta_r, theta_s, n, K_s):
     K_rel = Se**0.5 * (1 - (1 - Se**(1/m))**m)**2
     return K_s * K_rel
 
-def derivada_theta(theta, q_entrada, parametros_suelo, delta_z):
+def derivada_theta(theta, qi, parametros_suelo, delta_z):
     """Función derivada para humedad: dtheta/dt"""
     theta_r, theta_s, n, K_s = parametros_suelo 
     q_theta = conductividad_hidraulica(theta, theta_r, theta_s, n, K_s)
     
-    dtheta_dt=(q_entrada - q_theta) / delta_z
+    dtheta_dt = (qi - q_theta) / delta_z
     return dtheta_dt
 
 def derivada_concentracion(C, theta, q_theta, qi, Ci, dtheta_dt, dL_dt, delta_z):
     """Función derivada para concentración: dC/dt"""
     Ros=1650
-    if theta <= 0:
-        return 0.0
-    dc_dt=-(1/theta) * (q_theta * C - qi * Ci) / delta_z - C /theta* dtheta_dt - Ros/theta*dL_dt
+    # if theta <= 0:
+    #     return 0.0
+    dc_dt= -(1/theta) * (q_theta * C - qi * Ci) / delta_z - C /theta* dtheta_dt - Ros/theta*dL_dt
     return dc_dt
 
 def derivada_ley_cobre(L, t, k, n, Loo):
     """Función derivada para ley de cobre: dL/dt"""
+    n=1
     dL_dt= -k*(L-Loo)*n*t**(n-1)
     return dL_dt
 
@@ -63,23 +64,24 @@ def RK4_sistema_ecuaciones(theta, C, L, t, dt, q_theta, qi, Ci, n, k, Loo, param
     k42 = derivada_ley_cobre(L + 0.5*dt*k32, t + 0.5*dt, k, n, Loo)
     k43 = derivada_concentracion(C + dt*k33, theta, q_theta, qi, Ci, k41, k42, delta_z)
 
-    theta += (dt/6.0) * (k11 + 2*k21 + 2*k31 + k41)
-    C += (dt/6.0) * (k13 + 2*k23 + 2*k33 + k43)
-    L += (dt/6.0) * (k12 + 2*k22 + 2*k32 + k42)
+    theta = theta + (dt/6.0) * (k11 + 2*k21 + 2*k31 + k41)
+    L     = L + (dt/6.0) * (k12 + 2*k22 + 2*k32 + k42)
+    C     = C + (dt/6.0) * (k13 + 2*k23 + 2*k33 + k43)
+
 
     return theta, C, L
 
-def obtener_tasa_riego(tiempo_actual, tasa_riego_base, duracion_riego=10.0, 
-                      duracion_reposo=10.0, riego_continuo=False):
-    """Controla el patrón de riego"""
-    if riego_continuo:
-        return tasa_riego_base
+# def obtener_tasa_riego(tiempo_actual, tasa_riego_base, duracion_riego=10.0, 
+#                       duracion_reposo=10.0, riego_continuo=False):
+#     """Controla el patrón de riego"""
+#     if riego_continuo:
+#         return tasa_riego_base
     
-    ciclo_total = duracion_riego + duracion_reposo
-    ciclo = tiempo_actual % ciclo_total
-    if ciclo < duracion_riego:
-        return tasa_riego_base
-    return 0.0
+#     ciclo_total = duracion_riego + duracion_reposo
+#     ciclo = tiempo_actual % ciclo_total
+#     if ciclo < duracion_riego:
+#         return tasa_riego_base
+#     return 0.0
 
 # =============================================================================
 # PARÁMETROS DE SIMULACIÓN
@@ -95,13 +97,12 @@ Loo = 0.1/100
 n_generacion = 1
 Roo = (Ley_cu - Loo)/Ley_cu       # adimensional
 
-
 Cobre_total_kg = 10 * dens_aparente * Ley_cu
 
 print(f"Cobre en la pila: {Cobre_total_kg:.2f} kg")
 
 # Parámetros de concentración
-concentracion_inicial = 0.0
+concentracion_inicial = 3
 concentracion_entrada = 0.3
 
 # Parámetros del suelo
@@ -116,13 +117,13 @@ delta_z = 0.1           # m
 n_elementos = int(altura_total / delta_z)
 
 # Parámetros temporales
-dt = 0.4  # horas
+dt = 0.5  # horas
 dias_simulacion = 60
 tiempo_total = 24 * dias_simulacion
 n_pasos = int(tiempo_total / dt)
 
 # Condiciones iniciales
-theta_inicial = 0.05
+theta_inicial = 0.12
 tasa_riego = 10/1000  # m/h
 
 # Parámetros para las funciones
@@ -159,18 +160,26 @@ concentracion_nueva = concentracion_columna.copy()
 ley_nueva = ley_columna.copy()
 
 qi = tasa_riego
-Ci = concentracion_inicial
+Ci = concentracion_entrada
 
 concentraciones_salida = []
 tiempos_salida = []
+ley_salida = []
+rec_interior = []
+cu_f = 1*altura_total* dens_aparente * Ley_cu
+delta_rec_off = 0
+rec_off = []
+caudal_salida = []
 
 # Simulación principal optimizada
+# iteracion en el tiempo t
+
+print(f"Ci: {Ci}, n: {n_generacion}")
+
 for paso in range(n_pasos):
     tiempo_actual = paso * dt
-    qi = obtener_tasa_riego(
-        tiempo_actual, tasa_riego, duracion_riego, duracion_reposo, riego_continuo
-    )
-    
+    qi = tasa_riego
+    Ci = concentracion_entrada
     # Mostrar progreso cada 500 pasos
     if paso % 500 == 0:
         print(f"Paso {paso}/{n_pasos} ({100*paso/n_pasos:.1f}%) - "
@@ -181,35 +190,70 @@ for paso in range(n_pasos):
     for i in range(n_elementos):
         
         q_theta = conductividad_hidraulica(theta_nuevo[i], theta_r, theta_s, n, K_s)
+        Cout = concentracion_nueva[i]
 
         theta_nuevo[i], concentracion_nueva[i], ley_nueva[i] = RK4_sistema_ecuaciones(
             theta_nuevo[i], concentracion_nueva[i], ley_nueva[i],
             tiempo_actual, dt, 
             q_theta,
             qi, Ci,
-            n, k, Loo,
+            n_generacion, k, Loo,
             parametros_suelo, 
             delta_z
         )
-        
         # Actualizar flujo para el siguiente elemento usando el nuevo valor de thetass
-        qi = conductividad_hidraulica(
-            theta_nuevo[i], theta_r, theta_s, n, K_s
-        )
-        Ci = concentracion_nueva[i]
-        
+        qi = q_theta
+        Ci = Cout
+        print(concentracion_nueva[i])
+
+
+    delta_rec_off += (q_theta * Cout - tasa_riego * concentracion_entrada)*dt
+
     if paso % 10 == 0:
-        concentraciones_salida.append(concentracion_nueva[-1])
+        print(delta_rec_off)
         tiempos_salida.append(tiempo_actual)
+        concentraciones_salida.append(concentracion_nueva[-1])
+        ley_salida.append(ley_nueva[-1])
+        rec_interior.append((Ley_cu - ley_nueva[-1]) / Ley_cu)
+        rec_off.append(delta_rec_off/cu_f*100)
+        caudal_salida.append(q_theta)
+
     
 print("Simulación con sistema acoplado completada!")
 
+
+sns.lineplot(x=np.array(tiempos_salida)/24, y=np.array(caudal_salida)*1000,
+             label="Caudal de salida", marker='d', markersize=8, linewidth=2,
+             color='black')
+plt.grid(True, alpha=0.3)
+plt.xlabel('Tiempo (h)')
+plt.ylabel('Caudal de salida')
+plt.title('Evolución de caudal de salida')
+plt.tight_layout()
+plt.show()
 
 # =============================================================================
 # VISUALIZACIÓN DE RESULTADOS
 # =============================================================================
 
-sns.lineplot(x=tiempos_salida, y=concentraciones_salida, marker='o', markersize=3)
+sns.lineplot(x=np.array(tiempos_salida)/24, y=rec_off, marker='o', markersize=3)
+plt.grid(True, alpha=0.3)
+plt.xlabel('Tiempo (h)')
+plt.ylabel('Recuperación Off')
+plt.title('Evolución de la recuperación interior')
+plt.tight_layout()
+plt.show()
+
+sns.lineplot(x=np.array(tiempos_salida)/24, y=rec_interior, marker='o', markersize=3)
+plt.grid(True, alpha=0.3)
+plt.xlabel('Tiempo (h)')
+plt.ylabel('Recuperación Interior')
+plt.title('Evolución de la recuperación interior')
+plt.tight_layout()
+plt.show()
+
+
+sns.lineplot(x=np.array(tiempos_salida)/24, y=concentraciones_salida, marker='o', markersize=3)
 plt.grid(True, alpha=0.3)
 plt.xlabel('Tiempo (h)')
 plt.ylabel('Concentración')
@@ -217,4 +261,3 @@ plt.title('Evolución de la concentración en el último elemento')
 plt.tight_layout()
 plt.show()
     
-# %%
