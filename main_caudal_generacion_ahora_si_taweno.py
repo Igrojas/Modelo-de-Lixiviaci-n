@@ -64,12 +64,12 @@ def RK4_sistema_ecuaciones(theta, C, L, t, dt, q_theta, qi, Ci, n, k, Loo, param
     k42 = derivada_ley_cobre(L + 0.5*dt*k32, t + 0.5*dt, k, n, Loo)
     k43 = derivada_concentracion(C + dt*k33, theta, q_theta, qi, Ci, k41, k42, delta_z)
 
-    theta = theta + (dt/6.0) * (k11 + 2*k21 + 2*k31 + k41)
-    L     = L + (dt/6.0) * (k12 + 2*k22 + 2*k32 + k42)
-    C     = C + (dt/6.0) * (k13 + 2*k23 + 2*k33 + k43)
+    theta_ql = theta + (dt/6.0) * (k11 + 2*k21 + 2*k31 + k41)
+    L_ql     = L + (dt/6.0) * (k12 + 2*k22 + 2*k32 + k42)
+    C_ql     = C + (dt/6.0) * (k13 + 2*k23 + 2*k33 + k43)
 
-
-    return theta, C, L
+    # print(f"C del runge kutta: {C_ql}")
+    return theta_ql, C_ql, L_ql
 
 # def obtener_tasa_riego(tiempo_actual, tasa_riego_base, duracion_riego=10.0, 
 #                       duracion_reposo=10.0, riego_continuo=False):
@@ -102,7 +102,7 @@ Cobre_total_kg = 10 * dens_aparente * Ley_cu
 print(f"Cobre en la pila: {Cobre_total_kg:.2f} kg")
 
 # Parámetros de concentración
-concentracion_inicial = 3
+concentracion_inicial = 0.3
 concentracion_entrada = 0.3
 
 # Parámetros del suelo
@@ -113,11 +113,11 @@ K_s = 5/1000 * 40  # m/h
 
 # Parámetros de la columna
 altura_total = 10.0     # m
-delta_z = 0.1           # m
+delta_z = 0.1    # m
 n_elementos = int(altura_total / delta_z)
 
 # Parámetros temporales
-dt = 0.5  # horas
+dt = 0.01  # horas
 dias_simulacion = 60
 tiempo_total = 24 * dias_simulacion
 n_pasos = int(tiempo_total / dt)
@@ -144,16 +144,16 @@ print(f"Elementos: {n_elementos}, Pasos temporales: {n_pasos}")
 print("Cada variable tiene sus propios k1, k2, k3, k4 con valores intermedios compartidos")
 
 # Inicializar variables por separado
-theta_columna = np.full(n_elementos, theta_inicial)
-concentracion_columna = np.full(n_elementos, concentracion_inicial)
-ley_columna = np.full(n_elementos, Ley_cu)
+theta_columna = np.full(n_elementos, theta_inicial, dtype=float)
+concentracion_columna = np.full(n_elementos, concentracion_inicial, dtype=float)
+ley_columna = np.full(n_elementos, Ley_cu, dtype=float)
 
-profundidades = np.arange(delta_z, altura_total + delta_z, delta_z)
+profundidades = np.arange(delta_z, altura_total + delta_z, delta_z, dtype=float)
 
 # Vectores para almacenar resultados
 cobre_que_sale_vector = []
 cobre_recuperado_vector = []
-Cu_off = 0
+Cu_off = 0.0
 
 theta_nuevo = theta_columna.copy()
 concentracion_nueva = concentracion_columna.copy()
@@ -167,7 +167,7 @@ tiempos_salida = []
 ley_salida = []
 rec_interior = []
 cu_f = 1*altura_total* dens_aparente * Ley_cu
-delta_rec_off = 0
+delta_rec_off = 0.0
 rec_off = []
 caudal_salida = []
 
@@ -181,7 +181,7 @@ for paso in range(n_pasos):
     qi = tasa_riego
     Ci = concentracion_entrada
     # Mostrar progreso cada 500 pasos
-    if paso % 500 == 0:
+    if paso % 2000 == 0:
         print(f"Paso {paso}/{n_pasos} ({100*paso/n_pasos:.1f}%) - "
               f"Tiempo: {tiempo_actual/24:.1f} días - "
               f"θ[0]={theta_nuevo[0]:.4f}, C[0]={concentracion_nueva[0]:.3f}, L[0]={ley_nueva[0]:.3f}")
@@ -204,13 +204,12 @@ for paso in range(n_pasos):
         # Actualizar flujo para el siguiente elemento usando el nuevo valor de thetass
         qi = q_theta
         Ci = Cout
-        print(concentracion_nueva[i])
+        # Ci = concentracion_nueva[i]
 
 
     delta_rec_off += (q_theta * Cout - tasa_riego * concentracion_entrada)*dt
 
-    if paso % 10 == 0:
-        print(delta_rec_off)
+    if paso % 1 == 0:
         tiempos_salida.append(tiempo_actual)
         concentraciones_salida.append(concentracion_nueva[-1])
         ley_salida.append(ley_nueva[-1])
@@ -223,7 +222,7 @@ print("Simulación con sistema acoplado completada!")
 
 
 sns.lineplot(x=np.array(tiempos_salida)/24, y=np.array(caudal_salida)*1000,
-             label="Caudal de salida", marker='d', markersize=8, linewidth=2,
+             label="Caudal de salida", linewidth=1,
              color='black')
 plt.grid(True, alpha=0.3)
 plt.xlabel('Tiempo (h)')
@@ -236,28 +235,25 @@ plt.show()
 # VISUALIZACIÓN DE RESULTADOS
 # =============================================================================
 
-sns.lineplot(x=np.array(tiempos_salida)/24, y=rec_off, marker='o', markersize=3)
-plt.grid(True, alpha=0.3)
-plt.xlabel('Tiempo (h)')
-plt.ylabel('Recuperación Off')
-plt.title('Evolución de la recuperación interior')
-plt.tight_layout()
-plt.show()
+fig, axes = plt.subplots(1, 2, figsize=(12, 6), dpi=140)
 
-sns.lineplot(x=np.array(tiempos_salida)/24, y=rec_interior, marker='o', markersize=3)
-plt.grid(True, alpha=0.3)
-plt.xlabel('Tiempo (h)')
-plt.ylabel('Recuperación Interior')
-plt.title('Evolución de la recuperación interior')
-plt.tight_layout()
-plt.show()
+# Subplot 1: Recuperación Off y Recuperación Interior
+axes[0].plot(np.array(tiempos_salida) / 24, rec_off, label='Recuperación Off')
+axes[0].plot(np.array(tiempos_salida) / 24, np.array(rec_interior) * 100, label='Recuperación Interior')
+axes[0].grid(True, alpha=0.3)
+axes[0].set_xlabel('Tiempo (h)')
+axes[0].set_ylabel('Recuperación (%)')
+axes[0].set_title('Evolución de la recuperación')
+axes[0].legend()
 
+# Subplot 2: Concentración en el último elemento
+axes[1].plot(np.array(tiempos_salida) / 24, concentraciones_salida, color='tab:blue')
+axes[1].grid(True, alpha=0.3)
+axes[1].set_xlabel('Tiempo (h)')
+axes[1].set_ylabel('Concentración')
+axes[1].set_title('Evolución de la concentración en el último elemento')
 
-sns.lineplot(x=np.array(tiempos_salida)/24, y=concentraciones_salida, marker='o', markersize=3)
-plt.grid(True, alpha=0.3)
-plt.xlabel('Tiempo (h)')
-plt.ylabel('Concentración')
-plt.title('Evolución de la concentración en el último elemento')
 plt.tight_layout()
 plt.show()
     
+# %%
